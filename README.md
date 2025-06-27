@@ -5,10 +5,10 @@
     <img src="https://github.com/kube-hetzner/terraform-hcloud-kube-hetzner/raw/master/.images/kube-hetzner-logo.png" alt="Logo" width="112" height="112">
   </a>
 
-  <h2 align="center">Kube-Hetzner</h2>
+  <h2 align="center">Kube-AWS</h2>
 
   <p align="center">
-    A highly optimized, easy-to-use, auto-upgradable, HA-default & Load-Balanced, Kubernetes cluster powered by k3s-on-MicroOS and deployed for peanuts on <a href="https://hetzner.com" target="_blank">Hetzner Cloud</a> 🤑
+    A highly optimized, easy-to-use, auto-upgradable, HA-default & Load-Balanced, Kubernetes cluster powered by k3s-on-MicroOS and deployed on <a href="https://aws.amazon.com" target="_blank">Amazon Web Services</a> 🚀
   </p>
   <hr />
     <p align="center">
@@ -19,9 +19,9 @@
 
 ## About The Project
 
-[Hetzner Cloud](https://hetzner.com) is a good cloud provider that offers very affordable prices for cloud instances, with data center locations in both Europe and the US.
+[Amazon Web Services](https://aws.amazon.com) is the most widely used cloud provider with data centers around the world.
 
-This project aims to create a highly optimized Kubernetes installation that is easy to maintain, secure, and automatically upgrades both the nodes and Kubernetes. We aimed for functionality as close as possible to GKE's Auto-Pilot. _Please note that we are not affiliates of Hetzner, but we do strive to be an optimal solution for deploying and maintaining Kubernetes clusters on Hetzner Cloud._
+This project aims to create a highly optimized Kubernetes installation that is easy to maintain, secure, and automatically upgrades both the nodes and Kubernetes. We aimed for functionality as close as possible to GKE's Auto-Pilot. _Please note that we are not affiliates of AWS, but we do strive to be an optimal solution for deploying and maintaining Kubernetes clusters on AWS._
 
 To achieve this, we built up on the shoulders of giants by choosing [openSUSE MicroOS](https://en.opensuse.org/Portal:MicroOS) as the base operating system and [k3s](https://k3s.io/) as the k8s engine.
 
@@ -45,24 +45,24 @@ To achieve this, we built up on the shoulders of giants by choosing [openSUSE Mi
 ### Features
 
 - [x] **Maintenance-free** with auto-upgrades to the latest version of MicroOS and k3s.
-- [x] **Multi-architecture support**, choose any Hetzner cloud instances, including the cheaper CAX ARM instances.
-- [x] Proper use of the **Hetzner private network** to minimize latency.
+- [x] **Multi-architecture support**, choose any AWS EC2 instances, including ARM-based ones.
+- [x] Proper use of **AWS private networking** to minimize latency.
 - [x] Choose between **Flannel, Calico, or Cilium** as CNI.
 - [x] Optional **Wireguard** encryption of the Kube network for added security.
-- [x] **Traefik**, **Nginx** or **HAProxy** as ingress controller attached to a Hetzner load balancer with Proxy Protocol turned on.
+- [x] **Traefik**, **Nginx** or **HAProxy** as ingress controller attached to an AWS load balancer.
 - [x] **Automatic HA** with the default setting of three control-plane nodes and two agent nodes.
 - [x] **Autoscaling** nodes via the [kubernetes autoscaler](https://github.com/kubernetes/autoscaler).
 - [x] **Super-HA** with Nodepools for both control-plane and agent nodes that can be in different locations.
 - [x] Possibility to have a **single node cluster** with a proper ingress controller.
-- [x] Can use Klipper as an **on-metal LB** or the **Hetzner LB**.
+- [x] Can use Klipper as an **on-metal LB** or the **AWS Load Balancer**.
 - [x] Ability to **add nodes and nodepools** when the cluster is running.
-- [x] Possibility to toggle **Longhorn** and **Hetzner CSI**.
-- [x] Encryption at rest fully functional in both **Longhorn** and **Hetzner CSI**.
+- [x] Possibility to toggle **Longhorn** and the **AWS EBS CSI driver**.
+- [x] Encryption at rest fully functional in both **Longhorn** and **AWS EBS CSI**.
 - [x] Optional use of **Floating IPs** for use via Cilium's Egress Gateway.
 - [x] Proper IPv6 support for inbound/outbound traffic.
 - [x] **Flexible configuration options** via variables and an extra Kustomization option.
 
-_It uses Terraform to deploy as it's easy to use, and Hetzner has a great [Hetzner Terraform Provider](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs)._
+_It uses Terraform to deploy, leveraging the official [AWS Terraform Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)._
 
 <!-- GETTING STARTED -->
 
@@ -72,9 +72,9 @@ Follow those simple steps, and your world's cheapest Kubernetes cluster will be 
 
 ### ✔️ Prerequisites
 
-First and foremost, you need to have a Hetzner Cloud account. You can sign up for free [here](https://hetzner.com/cloud/).
+First and foremost, you need to have an AWS account. You can sign up for free [here](https://aws.amazon.com/free/).
 
-Then you'll need to have [terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli) or [tofu](https://opentofu.org/docs/intro/install/), [packer](https://developer.hashicorp.com/packer/tutorials/docker-get-started/get-started-install-cli#installing-packer) (for the initial snapshot creation only, no longer needed once that's done), [kubectl](https://kubernetes.io/docs/tasks/tools/) cli and [hcloud](https://github.com/hetznercloud/cli) the Hetzner cli for convenience. The easiest way is to use the [homebrew](https://brew.sh/) package manager to install them (available on Linux, Mac, and Windows Linux Subsystem). Timeout command is also used, which is a part of coreutils on MacOS.
+Then you'll need to have [terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli) or [tofu](https://opentofu.org/docs/intro/install/), [packer](https://developer.hashicorp.com/packer/tutorials/docker-get-started/get-started-install-cli#installing-packer) (for the initial snapshot creation only, no longer needed once that's done), [kubectl](https://kubernetes.io/docs/tasks/tools/) cli and the [AWS CLI](https://aws.amazon.com/cli/) for convenience. The easiest way is to use the [homebrew](https://brew.sh/) package manager to install them (available on Linux, Mac, and Windows Linux Subsystem). Timeout command is also used, which is a part of coreutils on MacOS.
 
 ```sh
 brew tap hashicorp/tap
@@ -87,7 +87,7 @@ brew install coreutils
 
 ### 💡 [Do not skip] Creating your kube.tf file and the OpenSUSE MicroOS snapshot
 
-1. Create a project in your [Hetzner Cloud Console](https://console.hetzner.cloud/), and go to **Security > API Tokens** of that project to grab the API key, it needs to be Read & Write. Take note of the key! ✅
+1. Create an IAM user in the [AWS Console](https://console.aws.amazon.com/) and generate an access key with the necessary permissions for EC2, VPC and Load Balancers. Take note of the key and secret! ✅
 2. Generate a passphrase-less ed25519 SSH key pair for your cluster; take note of the respective paths of your private and public keys. Or, see our detailed [SSH options](https://github.com/kube-hetzner/terraform-hcloud-kube-hetzner/blob/master/docs/ssh.md). ✅
 3. Now navigate to where you want to have your project live and execute the following command, which will help you get started with a **new folder** along with the required files, and will propose you to create a needed MicroOS snapshot. ✅
 
@@ -132,7 +132,7 @@ brew install coreutils
 
 ### 🎯 Installation
 
-Now that you have your `kube.tf` file, along with the OS snapshot in Hetzner project, you can start the installation process:
+Now that you have your `kube.tf` file and the necessary AWS AMI in your account, you can start the installation process:
 
 ```sh
 cd <your-project-folder>
@@ -143,7 +143,7 @@ terraform apply -auto-approve
 
 It will take around 5 minutes to complete, and then you should see a green output confirming a successful deployment.
 
-_Once you start with Terraform, it's best not to change the state of the project manually via the Hetzner UI; otherwise, you may get an error when you try to run terraform again for that cluster (when trying to change the number of nodes for instance). If you want to inspect your Hetzner project, learn to use the hcloud cli._
+_Once you start with Terraform, it's best not to change the state of the project manually via the AWS console; otherwise, you may get an error when you try to run terraform again for that cluster (when trying to change the number of nodes for instance). If you want to inspect your AWS resources, learn to use the AWS CLI._
 
 ## Usage
 

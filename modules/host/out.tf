@@ -1,29 +1,24 @@
 output "ipv4_address" {
-  value = hcloud_server.server.ipv4_address
+  value = aws_instance.server.public_ip
 }
 
 output "ipv6_address" {
-  value = hcloud_server.server.ipv6_address
+  value = aws_instance.server.ipv6_addresses[0]
 }
 
 output "private_ipv4_address" {
-  value = try(one(hcloud_server.server.network).ip, hcloud_server_network.server[0].ip)
+  value = aws_instance.server.private_ip
 }
 
 output "name" {
-  value = hcloud_server.server.name
+  value = aws_instance.server.tags["Name"]
 }
 
 output "id" {
-  value = hcloud_server.server.id
+  value = aws_instance.server.id
 }
 
 output "domain_assignments" {
   description = "Assignment of domain to the primary IP of the server"
-  value = [
-    for rdns in hcloud_rdns.server : {
-      domain = rdns.dns_ptr
-      ips    = [rdns.ip_address]
-    }
-  ]
+  value       = []
 }

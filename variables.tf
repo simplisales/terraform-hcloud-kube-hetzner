@@ -63,8 +63,8 @@ variable "authentication_config" {
   default     = ""
 }
 
-variable "hcloud_ssh_key_id" {
-  description = "If passed, a key already registered within hetzner is used. Otherwise, a new one will be created by the module."
+variable "aws_key_pair_name" {
+  description = "Existing AWS key pair name. If not set, the module creates one."
   type        = string
   default     = null
 }

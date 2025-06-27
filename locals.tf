@@ -3,9 +3,8 @@ locals {
   # For terraforms provisioner.connection.agent_identity, we need the public key as a string.
   ssh_agent_identity = var.ssh_private_key == null ? var.ssh_public_key : null
 
-  # If passed, a key already registered within hetzner is used.
-  # Otherwise, a new one will be created by the module.
-  hcloud_ssh_key_id = var.hcloud_ssh_key_id == null ? hcloud_ssh_key.k3s[0].id : var.hcloud_ssh_key_id
+  # If passed, an existing AWS key pair is used, otherwise one is created.
+  aws_key_pair_name = var.aws_key_pair_name == null ? aws_key_pair.k3s[0].key_name : var.aws_key_pair_name
 
   # if given as a variable, we want to use the given token. This is needed to restore the cluster
   k3s_token = var.k3s_token == null ? random_password.k3s_token.result : var.k3s_token
