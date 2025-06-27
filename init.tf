@@ -1,65 +1,36 @@
-resource "hcloud_load_balancer" "cluster" {
+resource "aws_lb" "cluster" {
   count = local.has_external_load_balancer ? 0 : 1
-  name  = local.load_balancer_name
+  name               = local.load_balancer_name
+  internal           = false
+  load_balancer_type = "network"
+  subnets            = (length(aws_subnet.agent) > 0 ? [aws_subnet.agent[0].id] : [aws_subnet.control_plane[0].id])
+  tags               = local.labels
+}
 
-  load_balancer_type = var.load_balancer_type
-  location           = var.load_balancer_location
-  labels             = local.labels
-  delete_protection  = var.enable_delete_protection.load_balancer
+resource "aws_lb_target_group" "cluster" {
+  count    = local.has_external_load_balancer ? 0 : 1
+  name     = "${var.cluster_name}-tg"
+  port     = 6443
+  protocol = "TCP"
+  vpc_id   = data.aws_vpc.k3s.id
+}
 
-  algorithm {
-    type = var.load_balancer_algorithm_type
-  }
-
-  lifecycle {
-    ignore_changes = [
-      # Ignore changes to hcloud-ccm/service-uid label that is managed by the CCM.
-      labels["hcloud-ccm/service-uid"],
-    ]
+resource "aws_lb_listener" "cluster" {
+  count             = local.has_external_load_balancer ? 0 : 1
+  load_balancer_arn = aws_lb.cluster[0].arn
+  port              = 6443
+  protocol          = "TCP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.cluster[0].arn
   }
 }
 
-resource "hcloud_load_balancer_network" "cluster" {
-  count = local.has_external_load_balancer ? 0 : 1
-
-  load_balancer_id = hcloud_load_balancer.cluster.*.id[0]
-  subnet_id = (
-    length(hcloud_network_subnet.agent) > 0
-    ? hcloud_network_subnet.agent.*.id[0]
-    : hcloud_network_subnet.control_plane.*.id[0]
-  )
-  enable_public_interface = true
-
-  lifecycle {
-    create_before_destroy = false
-    ignore_changes = [
-      ip,
-      enable_public_interface
-    ]
-  }
-}
-
-resource "hcloud_load_balancer_target" "cluster" {
-  count = local.has_external_load_balancer ? 0 : 1
-
-  depends_on       = [hcloud_load_balancer_network.cluster]
-  type             = "label_selector"
-  load_balancer_id = hcloud_load_balancer.cluster.*.id[0]
-  label_selector = join(",", concat(
-    [for k, v in local.labels : "${k}=${v}"],
-    [
-      # Generic label merge from control plane and agent namespaces with "or",
-      # resulting in: role in (control_plane_node,agent_node)
-      for key in keys(merge(local.labels_control_plane_node, local.labels_agent_node)) :
-      "${key} in (${
-        join(",", compact([
-          for labels in [local.labels_control_plane_node, local.labels_agent_node] :
-          try(labels[key], "")
-        ]))
-      })"
-    ]
-  ))
-  use_private_ip = true
+resource "aws_lb_target_group_attachment" "cluster" {
+  count            = local.has_external_load_balancer ? 0 : 1
+  target_group_arn = aws_lb_target_group.cluster[0].arn
+  target_id        = module.control_planes[keys(module.control_planes)[0]].id
+  port             = 6443
 }
 
 locals {

@@ -5,9 +5,9 @@ terraform {
       source  = "integrations/github"
       version = ">= 6.4.0"
     }
-    hcloud = {
-      source  = "hetznercloud/hcloud"
-      version = ">= 1.51.0"
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
     }
     local = {
       source  = "hashicorp/local"

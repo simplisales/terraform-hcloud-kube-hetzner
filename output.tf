@@ -4,13 +4,13 @@ output "cluster_name" {
 }
 
 output "network_id" {
-  value       = data.hcloud_network.k3s.id
-  description = "The ID of the HCloud network."
+  value       = data.aws_vpc.k3s.id
+  description = "The ID of the AWS VPC."
 }
 
 output "ssh_key_id" {
-  value       = local.hcloud_ssh_key_id
-  description = "The ID of the HCloud SSH key."
+  value       = local.aws_key_pair_name
+  description = "The name of the AWS key pair."
 }
 
 output "control_planes_public_ipv4" {

@@ -28,50 +28,25 @@ variable "network" {
   default = null
 }
 
-resource "hcloud_server" "server" {
-  name               = local.name
-  image              = var.microos_snapshot_id
-  server_type        = var.server_type
-  location           = var.location
-  ssh_keys           = var.ssh_keys
-  firewall_ids       = var.firewall_ids
-  placement_group_id = var.placement_group_id
-  backups            = var.backups
-  user_data          = data.cloudinit_config.config.rendered
-  keep_disk          = var.keep_disk_size
-  public_net {
-    ipv4_enabled = !var.disable_ipv4
-    ipv6_enabled = !var.disable_ipv6
-  }
+resource "aws_instance" "server" {
+  ami                         = var.microos_snapshot_id
+  instance_type               = var.server_type
+  availability_zone           = var.location
+  key_name                    = var.ssh_key_name
+  subnet_id                   = var.network_id > 0 ? null : var.ipv4_subnet_id
+  associate_public_ip_address = !var.disable_ipv4
+  user_data                   = data.cloudinit_config.config.rendered
+  tags                        = merge(var.labels, { Name = local.name })
 
-  dynamic "network" {
-    for_each = var.network_id > 0 ? [""] : []
-    content {
-      network_id = var.network_id
-      ip         = var.private_ipv4
-      alias_ips  = []
-    }
-  }
-
-  labels = var.labels
-
-  # Prevent destroying the whole cluster if the user changes
-  # any of the attributes that force to recreate the servers.
   lifecycle {
-    ignore_changes = [
-      location,
-      ssh_keys,
-      user_data,
-      image,
-    ]
+    ignore_changes = [key_name, user_data]
   }
 
   connection {
-    user           = "root"
-    private_key    = var.ssh_private_key
-    agent_identity = local.ssh_agent_identity
-    host           = coalesce(self.ipv4_address, self.ipv6_address, try(one(self.network).ip, null))
-    port           = var.ssh_port
+    user        = "ec2-user"
+    private_key = var.ssh_private_key
+    host        = coalesce(self.public_ip, self.private_ip)
+    port        = var.ssh_port
   }
 
   # Prepare ssh identity file
@@ -127,7 +102,7 @@ resource "null_resource" "registries" {
     user           = "root"
     private_key    = var.ssh_private_key
     agent_identity = local.ssh_agent_identity
-    host           = coalesce(hcloud_server.server.ipv4_address, hcloud_server.server.ipv6_address, try(one(hcloud_server.server.network).ip, null))
+    host           = coalesce(aws_instance.server.ipv4_address, aws_instance.server.ipv6_address, try(one(aws_instance.server.network).ip, null))
     port           = var.ssh_port
   }
 
@@ -140,31 +115,10 @@ resource "null_resource" "registries" {
     inline = [var.k3s_registries_update_script]
   }
 
-  depends_on = [hcloud_server.server]
+  depends_on = [aws_instance.server]
 }
 
-resource "hcloud_rdns" "server" {
-  count = (var.base_domain != "" && !var.disable_ipv4) ? 1 : 0
 
-  server_id  = hcloud_server.server.id
-  ip_address = coalesce(hcloud_server.server.ipv4_address, try(one(hcloud_server.server.network).ip, null))
-  dns_ptr    = format("%s.%s", local.name, var.base_domain)
-}
-
-resource "hcloud_rdns" "server_ipv6" {
-  count = (var.base_domain != "" && !var.disable_ipv6) ? 1 : 0
-
-  server_id  = hcloud_server.server.id
-  ip_address = hcloud_server.server.ipv6_address
-  dns_ptr    = format("%s.%s", local.name, var.base_domain)
-}
-
-resource "hcloud_server_network" "server" {
-  count     = var.network_id > 0 ? 0 : 1
-  ip        = var.private_ipv4
-  server_id = hcloud_server.server.id
-  subnet_id = var.ipv4_subnet_id
-}
 
 data "cloudinit_config" "config" {
   gzip          = true
@@ -199,7 +153,7 @@ resource "null_resource" "zram" {
     user           = "root"
     private_key    = var.ssh_private_key
     agent_identity = local.ssh_agent_identity
-    host           = coalesce(hcloud_server.server.ipv4_address, hcloud_server.server.ipv6_address, try(one(hcloud_server.server.network).ip, null))
+    host           = coalesce(aws_instance.server.ipv4_address, aws_instance.server.ipv6_address, try(one(aws_instance.server.network).ip, null))
     port           = var.ssh_port
   }
 
@@ -266,21 +220,21 @@ WantedBy=multi-user.target
     ])
   }
 
-  depends_on = [hcloud_server.server]
+  depends_on = [aws_instance.server]
 }
 
 # Resource to toggle transactional-update.timer based on automatically_upgrade_os setting
 resource "null_resource" "os_upgrade_toggle" {
   triggers = {
     os_upgrade_state = var.automatically_upgrade_os ? "enabled" : "disabled"
-    server_id        = hcloud_server.server.id
+    server_id        = aws_instance.server.id
   }
 
   connection {
     user           = "root"
     private_key    = var.ssh_private_key
     agent_identity = local.ssh_agent_identity
-    host           = coalesce(hcloud_server.server.ipv4_address, hcloud_server.server.ipv6_address, try(one(hcloud_server.server.network).ip, null))
+    host           = coalesce(aws_instance.server.ipv4_address, aws_instance.server.ipv6_address, try(one(aws_instance.server.network).ip, null))
     port           = var.ssh_port
   }
 
@@ -299,7 +253,7 @@ resource "null_resource" "os_upgrade_toggle" {
   }
 
   depends_on = [
-    hcloud_server.server,
+    aws_instance.server,
     null_resource.registries
   ]
 }
